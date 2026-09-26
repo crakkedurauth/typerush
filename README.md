@@ -1,12 +1,37 @@
-# TypeRush — polished multiplayer typing battles
+# TypeRush — Render-ready multiplayer typing battles
 
-## Run locally
-1. Open a terminal in this folder.
-2. Run `npm install`
-3. Run `npm start`
-4. Open http://localhost:3000
+## Local
+```bash
+npm install
+npm start
+```
+Open http://localhost:3000.
 
-The SQLite database is created automatically.
+## Render
+Create a **Web Service** from this repository.
 
-## Frontend
-The visual redesign is in `public/index.html`, `public/style.css`, and `public/app.js`.
+- Build Command: `npm install`
+- Start Command: `npm start`
+- Health Check Path: `/health`
+
+Set these environment variables:
+
+- `NODE_ENV=production`
+- `SESSION_SECRET=` a long random secret (32+ bytes)
+- `DB_PATH=/var/data/typing-battles.db` when using a Render persistent disk mounted at `/var/data`
+
+For account/ELO persistence, attach a Render persistent disk and mount it at `/var/data`. Without a persistent disk, SQLite data can be lost when the service is replaced or redeployed.
+
+## Features
+- Casual quick match without an account
+- Ranked quick match with accounts and ELO matchmaking
+- Public/private rooms
+- Word and time modes
+- Punctuation, capitalization and numbers toggles
+- Mistake limits or unlimited mistakes
+- Server-side prefix validation and basic speed sanity checks
+- `/health` endpoint for Render
+- Binds to `0.0.0.0` and `process.env.PORT`
+
+## Important
+Do not commit `node_modules` or `typing-battles.db`. Render installs dependencies during the build.
