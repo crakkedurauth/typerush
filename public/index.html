@@ -1,123 +1,950 @@
-<!doctype html>
+```html
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TypeRush — Multiplayer Typing Battles</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css" />
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>TypeRush</title>
+
+  <link
+    rel="stylesheet"
+    href="/styles.css"
+  >
 </head>
+
 <body>
-  <div class="bg-orb orb-a"></div><div class="bg-orb orb-b"></div>
+
+  <!-- =====================================================
+       INTRO
+  ====================================================== -->
+
+  <div
+    id="introStage"
+    class="intro-stage"
+  >
+    <div class="intro-logo">
+      TypeRush
+    </div>
+
+    <div class="intro-sub">
+      MULTIPLAYER TYPING ARENA
+    </div>
+  </div>
+
+
+  <!-- =====================================================
+       NAVIGATION
+  ====================================================== -->
+
   <header class="topbar">
-    <a class="brand" href="#"><span class="brand-mark">⌁</span><span>TypeRush</span></a>
-    <div class="online-pill"><span class="dot"></span><span id="onlineCount">0</span> online</div>
+
+    <div
+      class="brand"
+      data-home
+    >
+      Type<span>Rush</span>
+    </div>
+
+    <div class="nav-right">
+
+      <div class="online">
+        <i></i>
+        <span id="onlineCount">
+          Online
+        </span>
+      </div>
+
+      <button
+        id="accountBtn"
+        class="account-button"
+      >
+        Sign in
+      </button>
+
+    </div>
+
   </header>
 
-  <main class="shell">
-    <section id="homeView" class="view active">
+
+  <main>
+
+    <!-- ===================================================
+         HOME
+    ==================================================== -->
+
+    <section
+      id="homeView"
+      class="view active"
+    >
+
       <div class="hero">
-        <div>
-          <span class="eyebrow">MULTIPLAYER TYPING ARENA</span>
-          <h1>Type fast.<br><em>Win faster.</em></h1>
-          <p>Race real players in custom typing battles, or make a room for your friends.</p>
+
+        <div class="hero-copy">
+
+          <span class="eyebrow">
+            MULTIPLAYER TYPING ARENA
+          </span>
+
+          <h1>
+            Type fast.
+            <br>
+            <em>Win faster.</em>
+          </h1>
+
+          <p>
+            Choose your arena and
+            challenge the world.
+          </p>
+
+
+          <!-- MODE SELECTION -->
+
+          <div class="mode-cards">
+
+            <button
+              id="casualModeBtn"
+              class="mode-card active"
+            >
+              <span>⚡</span>
+
+              <b>
+                Casual
+              </b>
+
+              <small>
+                No account required.
+                Quick matches and
+                custom rooms.
+              </small>
+            </button>
+
+
+            <button
+              id="rankedModeBtn"
+              class="mode-card"
+            >
+              <span>🏆</span>
+
+              <b>
+                Ranked
+              </b>
+
+              <small>
+                Account required.
+                Elo matchmaking and
+                competitive ratings.
+              </small>
+            </button>
+
+          </div>
+
+
           <div class="hero-actions">
-            <button class="btn primary" id="quickMatchBtn">⚡ Quick Match</button>
-            <button class="btn secondary" id="createRoomBtn">＋ Create Room</button>
+
+            <button
+              id="quickMatchBtn"
+              class="btn primary"
+            >
+              ⚡ Quick Match
+            </button>
+
+            <button
+              id="createRoomBtn"
+              class="btn secondary"
+            >
+              ＋ Create Room
+            </button>
+
           </div>
+
         </div>
+
+
+        <!-- STATS CARD -->
+
         <div class="hero-card">
-          <div class="mini-label">YOUR BEST</div>
-          <div class="big-stat" id="bestWpm">—</div><div class="stat-sub">WPM</div>
-          <div class="sparkline"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+          <div class="mini-label">
+            YOUR BEST
+          </div>
+
+          <div
+            id="bestWpm"
+            class="big-stat"
+          >
+            —
+          </div>
+
+          <div class="stat-sub">
+            WPM
+          </div>
+
+
+          <div
+            id="rankCard"
+            class="rank-card hidden"
+          >
+
+            <span>
+              RANKED ELO
+            </span>
+
+            <strong id="homeElo">
+              1000
+            </strong>
+
+          </div>
+
         </div>
+
       </div>
 
-      <div class="panel room-panel">
+
+      <!-- PUBLIC CASUAL ROOMS -->
+
+      <div
+        id="publicRoomsPanel"
+        class="panel room-panel"
+      >
+
         <div class="panel-head">
-          <div><h2>Public rooms</h2><p>Jump into an open battle.</p></div>
-          <button class="icon-btn" id="refreshRooms" title="Refresh rooms">↻</button>
+
+          <div>
+            <h2>
+              Public casual rooms
+            </h2>
+
+            <p>
+              Join an open battle.
+            </p>
+          </div>
+
+          <button
+            id="refreshRooms"
+            class="icon-btn"
+          >
+            ↻
+          </button>
+
         </div>
-        <div id="roomList" class="room-list"><div class="empty">Loading rooms…</div></div>
-      </div>
-    </section>
 
-    <section id="setupView" class="view">
-      <div class="page-head">
-        <button class="back" data-back>← Back</button>
-        <div><span class="eyebrow">BATTLE SETUP</span><h2 id="setupTitle">Create a room</h2></div>
-      </div>
-      <div class="setup-grid">
-        <div class="panel settings-panel">
-          <h3>Race settings</h3>
-          <div class="field"><label>Mode</label>
-            <div class="segmented"><button class="seg active" data-mode="words">Words</button><button class="seg" data-mode="time">Time</button></div>
+        <div
+          id="roomList"
+          class="room-list"
+        >
+
+          <div class="empty">
+            No public rooms yet.
           </div>
-          <div class="field" id="wordsField"><label>Word count <strong id="wordsValue">30</strong></label><input id="wordsRange" type="range" min="10" max="100" step="5" value="30"></div>
-          <div class="field hidden" id="timeField"><label>Time limit <strong id="timeValue">60s</strong></label><input id="timeRange" type="range" min="15" max="180" step="15" value="60"></div>
-          <div class="toggles">
-            <label class="toggle-row"><span><b>Punctuation</b><small>Commas, periods, quotes</small></span><input id="punctuation" type="checkbox"><i></i></label>
-            <label class="toggle-row"><span><b>Capitalization</b><small>Uppercase letters</small></span><input id="capitalization" type="checkbox"><i></i></label>
-            <label class="toggle-row"><span><b>Numbers</b><small>Include digits</small></span><input id="numbers" type="checkbox"><i></i></label>
-          </div>
-          <div class="field"><label>Room visibility</label>
-            <div class="segmented"><button class="seg active" data-visibility="public">Public</button><button class="seg" data-visibility="private">Private</button></div>
-          </div>
-          <button class="btn primary wide" id="launchRoomBtn">Create room</button>
+
         </div>
-        <div class="panel preview-panel">
-          <span class="eyebrow">LIVE PREVIEW</span>
-          <div class="preview-race">
-            <div class="preview-line"></div>
-            <div class="preview-word">the quick brown fox jumps over the lazy dog</div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         ROOM SETUP
+    ==================================================== -->
+
+    <section
+      id="setupView"
+      class="view"
+    >
+
+      <div class="panel setup-panel">
+
+        <span class="eyebrow">
+          CASUAL ROOM
+        </span>
+
+        <h2>
+          Create a battle
+        </h2>
+
+
+        <!-- MODE -->
+
+        <div class="field">
+
+          <label>
+            Race type
+          </label>
+
+          <div class="segmented">
+
+            <button
+              class="seg mode-setting active"
+              data-mode="words"
+            >
+              Words
+            </button>
+
+            <button
+              class="seg mode-setting"
+              data-mode="time"
+            >
+              Time
+            </button>
+
           </div>
-          <div class="setting-summary" id="settingSummary"></div>
+
         </div>
+
+
+        <!-- WORD COUNT -->
+
+        <div
+          id="wordsSetting"
+          class="field"
+        >
+
+          <label>
+            Word count
+          </label>
+
+          <input
+            id="wordsValue"
+            type="range"
+            min="10"
+            max="100"
+            value="30"
+          >
+
+          <div class="range-value">
+            30 words
+          </div>
+
+        </div>
+
+
+        <!-- TIME -->
+
+        <div
+          id="timeSetting"
+          class="field hidden"
+        >
+
+          <label>
+            Time limit
+          </label>
+
+          <input
+            id="timeValue"
+            type="range"
+            min="15"
+            max="180"
+            value="60"
+          >
+
+          <div class="range-value">
+            60 seconds
+          </div>
+
+        </div>
+
+
+        <!-- TEXT OPTIONS -->
+
+        <div class="field">
+
+          <label>
+            Text options
+          </label>
+
+          <div class="check-grid">
+
+            <label class="check">
+              <input
+                id="punctuation"
+                type="checkbox"
+              >
+              <span>
+                Punctuation
+              </span>
+            </label>
+
+            <label class="check">
+              <input
+                id="capitalization"
+                type="checkbox"
+              >
+              <span>
+                Capitalization
+              </span>
+            </label>
+
+            <label class="check">
+              <input
+                id="numbers"
+                type="checkbox"
+              >
+              <span>
+                Numbers
+              </span>
+            </label>
+
+          </div>
+
+        </div>
+
+
+        <!-- MISTAKE LIMIT -->
+
+        <div class="field">
+
+          <label>
+            Mistakes allowed
+          </label>
+
+          <div class="segmented mistake-segment">
+
+            <button
+              class="seg active"
+              data-mistakes="unlimited"
+            >
+              Unlimited
+            </button>
+
+            <button
+              class="seg"
+              data-mistakes="0"
+            >
+              0
+            </button>
+
+            <button
+              class="seg"
+              data-mistakes="1"
+            >
+              1
+            </button>
+
+            <button
+              class="seg"
+              data-mistakes="3"
+            >
+              3
+            </button>
+
+            <button
+              class="seg"
+              data-mistakes="5"
+            >
+              5
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <!-- VISIBILITY -->
+
+        <div class="field">
+
+          <label>
+            Room visibility
+          </label>
+
+          <div class="check-grid">
+
+            <label class="check">
+
+              <input
+                id="publicRoom"
+                name="visibility"
+                type="radio"
+                value="public"
+                checked
+              >
+
+              <span>
+                Public
+              </span>
+
+            </label>
+
+            <label class="check">
+
+              <input
+                id="privateRoom"
+                name="visibility"
+                type="radio"
+                value="private"
+              >
+
+              <span>
+                Private
+              </span>
+
+            </label>
+
+          </div>
+
+        </div>
+
+
+        <div class="setup-actions">
+
+          <button
+            id="cancelSetup"
+            class="btn secondary"
+          >
+            Cancel
+          </button>
+
+          <button
+            id="createRoomConfirm"
+            class="btn primary"
+          >
+            Create Room
+          </button>
+
+        </div>
+
       </div>
+
     </section>
 
-    <section id="lobbyView" class="view">
-      <div class="page-head"><button class="back" id="leaveLobby">← Leave</button><div><span class="eyebrow">ROOM LOBBY</span><h2 id="lobbyTitle">Waiting for opponent</h2></div></div>
-      <div class="panel lobby-card">
-        <div class="room-code-row"><div><span class="mini-label">ROOM CODE</span><div class="room-code" id="roomCode">------</div></div><button class="btn secondary small" id="copyInvite">Copy invite</button></div>
-        <div class="players" id="players"></div>
-        <div class="lobby-settings" id="lobbySettings"></div>
-        <div class="waiting"><span class="loader"></span><span id="lobbyStatus">Waiting for another player…</span></div>
-        <button class="btn primary wide hidden" id="startBattleBtn">Start battle</button>
+
+    <!-- ===================================================
+         LOBBY
+    ==================================================== -->
+
+    <section
+      id="lobbyView"
+      class="view"
+    >
+
+      <div class="panel lobby-panel">
+
+        <span class="eyebrow">
+          BATTLE LOBBY
+        </span>
+
+        <h2 id="lobbyTitle">
+          Waiting for player
+        </h2>
+
+        <div
+          id="lobbyCode"
+          class="room-code"
+        >
+          ------
+        </div>
+
+
+        <div
+          id="roomInvite"
+          class="invite hidden"
+        >
+
+          <input
+            id="roomLink"
+            readonly
+          >
+
+          <button
+            id="copyRoomLink"
+            class="btn secondary"
+          >
+            Copy link
+          </button>
+
+        </div>
+
+
+        <div
+          id="lobbyPlayers"
+          class="lobby-players"
+        >
+        </div>
+
+
+        <div
+          id="waitingMessage"
+          class="waiting-message"
+        >
+          Waiting for another player…
+        </div>
+
+
+        <!--
+          This button is ONLY for manually
+          created casual rooms.
+
+          Quick Match never displays it.
+        -->
+
+        <button
+          id="startBattleBtn"
+          class="btn primary wide hidden"
+        >
+          Start Battle
+        </button>
+
+        <button
+          class="text-btn"
+          data-home
+        >
+          Leave lobby
+        </button>
+
       </div>
+
     </section>
 
-    <section id="battleView" class="view">
-      <div class="battle-top">
-        <div class="battle-player"><div class="avatar" id="meAvatar">Y</div><div><b id="meName">You</b><span id="meProgress">0%</span></div></div>
-        <div class="battle-clock" id="battleClock">Ready</div>
-        <div class="battle-player right"><div><b id="opName">Opponent</b><span id="opProgress">0%</span></div><div class="avatar alt" id="opAvatar">O</div></div>
+
+    <!-- ===================================================
+         BATTLE
+    ==================================================== -->
+
+    <section
+      id="battleView"
+      class="view"
+    >
+
+      <div class="battle-shell">
+
+        <div class="battle-top">
+
+          <div class="battle-stat">
+
+            <small>
+              TIME
+            </small>
+
+            <strong
+              id="raceTimer"
+            >
+              0
+            </strong>
+
+          </div>
+
+
+          <div class="battle-stat">
+
+            <small>
+              OPPONENT
+            </small>
+
+            <div class="progress">
+
+              <div
+                id="opponentProgress"
+                class="progress-fill opponent"
+              ></div>
+
+            </div>
+
+          </div>
+
+
+          <div class="battle-stat">
+
+            <small>
+              YOUR PROGRESS
+            </small>
+
+            <div class="progress">
+
+              <div
+                id="playerProgress"
+                class="progress-fill"
+              ></div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div
+          id="raceText"
+          class="race-text"
+        >
+        </div>
+
+
+        <textarea
+          id="typingInput"
+          class="typing-input"
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          disabled
+          placeholder="Start typing when the countdown ends..."
+        ></textarea>
+
       </div>
-      <div class="race-track"><div class="track-fill" id="meFill"></div><div class="finish">🏁</div></div>
-      <div class="panel typing-panel">
-        <div class="race-text" id="raceText"></div>
-        <textarea id="typingInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" disabled placeholder="Get ready…"></textarea>
-        <div class="typing-footer"><span id="typingHint">The race starts when both players are ready.</span><span id="liveWpm">0 WPM</span></div>
+
+
+      <div
+        id="countdownOverlay"
+        class="countdown-overlay hidden"
+      >
+
+        <div
+          id="countdown"
+          class="countdown"
+        >
+          3
+        </div>
+
       </div>
-      <div class="opponent-bar"><div class="opponent-bar-fill" id="opFill"></div></div>
+
     </section>
 
-    <section id="resultsView" class="view">
-      <div class="results-hero"><span class="eyebrow">BATTLE COMPLETE</span><h1 id="resultTitle">Race finished</h1><p id="resultSubtitle"></p></div>
-      <div class="results-grid">
-        <div class="panel result-main"><div class="result-wpm" id="resultWpm">0</div><span>WPM</span><div class="result-meta"><div><b id="resultAccuracy">0%</b><small>Accuracy</small></div><div><b id="resultTime">0s</b><small>Time</small></div><div><b id="resultChars">0</b><small>Characters</small></div></div></div>
-        <div class="panel result-op"><div class="mini-label">OPPONENT</div><h3 id="resultOpName">Opponent</h3><div class="op-score" id="resultOpWpm">0 WPM</div><div class="bar"><i id="resultOpBar"></i></div></div>
+
+    <!-- ===================================================
+         RESULTS
+    ==================================================== -->
+
+    <section
+      id="resultView"
+      class="view"
+    >
+
+      <div class="panel result-panel">
+
+        <span class="eyebrow">
+          RESULTS
+        </span>
+
+        <h2 id="resultTitle">
+          Race complete
+        </h2>
+
+        <p id="resultSubtitle">
+          Nice run.
+        </p>
+
+        <div class="result-wpm">
+
+          <strong
+            id="resultWpm"
+          >
+            0
+          </strong>
+
+          <span>
+            WPM
+          </span>
+
+        </div>
+
+
+        <button
+          class="btn primary wide"
+          data-home
+        >
+          Back to Home
+        </button>
+
       </div>
-      <div class="hero-actions center"><button class="btn primary" id="rematchBtn">↻ Rematch</button><button class="btn secondary" id="homeBtn">Back to home</button></div>
+
     </section>
+
   </main>
 
-  <div id="toast" class="toast"></div>
-  <div id="nameModal" class="modal-backdrop"><div class="modal panel"><span class="eyebrow">WELCOME</span><h2>Choose your racer name</h2><p>This is how other players will see you.</p><input id="nameInput" maxlength="18" placeholder="e.g. speedster" autofocus><button class="btn primary wide" id="saveName">Enter arena</button></div></div>
+
+  <!-- =====================================================
+       ACCOUNT MODAL
+  ====================================================== -->
+
+  <div
+    id="accountModal"
+    class="modal-backdrop hidden"
+  >
+
+    <div class="modal panel">
+
+      <div class="account-tabs">
+
+        <button
+          class="seg active"
+          data-auth-tab="login"
+        >
+          Sign in
+        </button>
+
+        <button
+          class="seg"
+          data-auth-tab="signup"
+        >
+          Create account
+        </button>
+
+      </div>
+
+
+      <span class="eyebrow">
+        RANKED ACCESS
+      </span>
+
+      <h2 id="authTitle">
+        Sign in to Ranked
+      </h2>
+
+      <p>
+        Ranked requires an account so
+        your Elo can be saved securely.
+      </p>
+
+
+      <input
+        id="authUsername"
+        placeholder="Username or email"
+        maxlength="18"
+      >
+
+      <input
+        id="authEmail"
+        class="hidden"
+        type="email"
+        placeholder="Email"
+        maxlength="254"
+      >
+
+      <input
+        id="authPassword"
+        type="password"
+        placeholder="Password (8+ characters)"
+        maxlength="128"
+      >
+
+
+      <button
+        id="authSubmit"
+        class="btn primary wide"
+      >
+        Sign in
+      </button>
+
+
+      <button
+        id="closeAccount"
+        class="text-btn"
+      >
+        Cancel
+      </button>
+
+
+      <div
+        id="authError"
+        class="auth-error"
+      ></div>
+
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       PROFILE
+  ====================================================== -->
+
+  <div
+    id="profileModal"
+    class="modal-backdrop hidden"
+  >
+
+    <div class="modal panel">
+
+      <span class="eyebrow">
+        RANKED PROFILE
+      </span>
+
+      <h2 id="profileName">
+        Racer
+      </h2>
+
+
+      <div class="profile-stats">
+
+        <div>
+
+          <b id="profileElo">
+            1000
+          </b>
+
+          <small>
+            Elo
+          </small>
+
+        </div>
+
+
+        <div>
+
+          <b id="profileGames">
+            0
+          </b>
+
+          <small>
+            Games
+          </small>
+
+        </div>
+
+
+        <div>
+
+          <b id="profileWins">
+            0
+          </b>
+
+          <small>
+            Wins
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <button
+        id="logoutBtn"
+        class="btn secondary wide"
+      >
+        Sign out
+      </button>
+
+      <button
+        id="closeProfile"
+        class="text-btn"
+      >
+        Close
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       TOAST
+  ====================================================== -->
+
+  <div
+    id="toast"
+    class="toast"
+  ></div>
+
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="/app.js"></script>
+
 </body>
 </html>
+```
