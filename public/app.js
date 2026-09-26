@@ -1,109 +1,97 @@
 const socket=io();
-let name=localStorage.getItem("typerush-name")||"";
-let settings={mode:"words",words:30,time:60,punctuation:false,capitalization:false,numbers:false};
-let currentRoom=null,raceText="",startedAt=0,finished=false;
-const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
-const show=id=>{$$(".view").forEach(v=>v.classList.remove("active"));$("#"+id).classList.add("active")};
-const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2400)};
-const avatar=n=>(n||"R").slice(0,1).toUpperCase();
-const esc=s=>String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const $=id=>document.getElementById(id);
+let me=null,mode=null,currentSettings=null,matchId=null,text='',startedAt=0,battleStarted=false,localMistakes=0,inputLocked=false;
+const screens=['mode','casual','ranked','rooms','queue','battle','result'];
+function show(id){screens.forEach(x=>$(x)?.classList.toggle('hidden',x!==id));window.scrollTo({top:0,behavior:'smooth'});}
+function toast(message){const t=$('toast');t.textContent=message;t.classList.add('toast-show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('toast-show'),2600)}
+function settings(){return{words:Math.max(10,Math.min(200,+$('words').value||30)),time:Math.max(10,Math.min(300,+$('time').value||60)),punctuation:$('punct').checked,capitals:$('caps').checked,numbers:$('nums').checked,mistakes:$('mistakes').value,mode:$('roomMode').value}}
+function initials(name){return String(name||'G').slice(0,2).toUpperCase()}
+function renderAccount(){
+  const a=$('account');
+  if(me)a.innerHTML=`<div class="account-chip"><span class="avatar">${initials(me.username)}</span><span>${me.username} · <b>${me.elo} ELO</b></span></div>`;
+  else a.innerHTML='';
+}
+function loadRanked(){
+  if(me){
+    $('auth').innerHTML=`<div class="panel profile-card"><div class="profile-avatar">${initials(me.username)}</div><div><div class="profile-name">${me.username}</div><div class="elo">${me.elo} ELO · Ranked ready</div></div></div>`;
+    $('rankedQueue').classList.remove('hidden');
+  }else{
+    $('rankedQueue').classList.add('hidden');
+    $('auth').innerHTML=`<div class="panel"><div class="panel-heading"><div><h3>Enter the ranked ladder</h3><p>Create an account to save your rating and match history.</p></div><span class="panel-icon">◈</span></div><div class="auth-grid"><input class="auth-input" id="username" maxlength="20" placeholder="Username"><input class="auth-input" id="password" type="password" placeholder="Password · 8+ characters"></div><div class="auth-actions"><button id="login">Log in</button><button id="signup" class="primary">Create account</button></div><div class="auth-note">Casual play never requires an account.</div></div>`;
+    $('login').onclick=auth('login');$('signup').onclick=auth('signup');
+  }
+}
+function auth(type){return async()=>{
+  const username=$('username').value.trim(),password=$('password').value;
+  if(!username||!password)return toast('Enter your username and password.');
+  try{
+    const r=await fetch('/api/'+type,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
+    const d=await r.json();if(!r.ok)return toast(d.error||'Something went wrong.');
+    me=d.user;renderAccount();loadRanked();toast(type==='signup'?'Account created. Welcome to Ranked.':'Welcome back, '+me.username+'.');
+  }catch(e){toast('Could not reach the server.');}
+}}
+function updateRaceType(){const isWords=$('roomMode').value==='words';$('wordsLabel').classList.toggle('hidden',!isWords);$('timeLabel').classList.toggle('hidden',isWords)}
+function renderRooms(list){
+  $('roomCount').textContent=list.length;
+  $('roomList').innerHTML=list.length?list.map(r=>`<div class="room-item"><div><strong>ROOM ${r.code}</strong><small>${r.players}/2 players · ${r.settings.mode==='time'?r.settings.time+' seconds':r.settings.words+' words'} · ${r.settings.mistakes==='unlimited'?'Unlimited mistakes':r.settings.mistakes+' mistakes'}</small></div><button onclick="joinRoom('${r.code}')">Join →</button></div>`).join(''):'<div class="empty">No public rooms yet.<br>Create one and be the first to race.</div>';
+}
+function setBattleProgress(index){
+  const pct=text.length?Math.min(100,index/text.length*100):0;
+  $('progressBar').style.width=pct+'%';$('progressLabel').textContent=Math.round(pct)+'%';
+}
+function updateStats(v){
+  let mistakes=0;for(let i=0;i<v.length;i++)if(v[i]!==text[i])mistakes++;
+  localMistakes=mistakes;
+  const elapsed=Math.max(.25,(Date.now()-startedAt)/60000);
+  const wpm=Math.round((v.length/5)/elapsed);
+  $('battleStats').textContent=`${wpm||0} WPM · ${mistakes} mistake${mistakes===1?'':'s'}`;
+  const accuracy=v.length?Math.round((1-mistakes/v.length)*100):100;
+  $('accuracy').textContent=accuracy+'%';
+  setBattleProgress(v.length);
+}
+function queue(m){mode=m;show('queue');$('queueText').textContent=m==='ranked'?'Searching within your ELO range…':'Searching for another player…';currentSettings={...settings(),mode:m};socket.emit('queueJoin',{mode:m,settings:currentSettings})}
+function beginBattle(d){
+  matchId=d.matchId;text=d.text;currentSettings=d.settings;battleStarted=false;localMistakes=0;inputLocked=false;
+  show('battle');$('battleMode').textContent=(currentSettings.mode||mode||'casual').toUpperCase();$('opp').textContent=d.opponent.username+' · '+d.opponent.elo+' ELO';$('oppMeta').textContent='Opponent';$('you').textContent=me?me.username:'Guest';$('youMeta').textContent=me?me.elo+' ELO':'Casual player';$('text').textContent=text;$('typing').value='';$('typing').disabled=true;$('typing').classList.remove('error');$('progressBar').style.width='0%';$('progressLabel').textContent='0%';$('accuracy').textContent='100%';
+  let end=Date.now()+Math.max(0,(d.startsIn||3)*1000);clearInterval(beginBattle.timer);
+  beginBattle.timer=setInterval(()=>{let n=Math.ceil((end-Date.now())/1000);$('countdown').textContent=n>0?n:'GO!';if(n<=0){clearInterval(beginBattle.timer)}},100);
+}
+document.querySelectorAll('.mode-card').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;show(mode);if(mode==='ranked')loadRanked()});
+document.querySelectorAll('.back').forEach(b=>b.onclick=()=>show(b.dataset.back));
+$('brandHome').onclick=()=>show('mode');
+$('roomMenu').onclick=()=>{show('rooms');socket.emit('roomList')};
+$('roomMode').onchange=updateRaceType;
+$('casualQueue').onclick=()=>queue('casual');
+$('rankedQueue').onclick=()=>queue('ranked');
+$('cancelQueue').onclick=()=>{socket.emit('queueLeave');show(mode||'mode');toast('Matchmaking cancelled.')};
+$('createRoom').onclick=()=>{currentSettings=settings();socket.emit('createRoom',{settings:currentSettings,privateRoom:$('private').value==='1'})};
+$('again').onclick=()=>show('mode');
 
-function updateSetup(){
- $("#wordsValue").textContent=settings.words;$("#timeValue").textContent=settings.time+"s";
- $("#wordsField").classList.toggle("hidden",settings.mode!=="words");$("#timeField").classList.toggle("hidden",settings.mode!=="time");
- $("#settingSummary").innerHTML=`${settings.mode==="words"?settings.words+" words":settings.time+" seconds"}<br>${settings.punctuation?"Punctuation on":"Punctuation off"} · ${settings.capitalization?"Caps on":"Caps off"} · ${settings.numbers?"Numbers on":"Numbers off"}`;
-}
-function score(input){
- let correct=0;for(let i=0;i<input.length&&i<raceText.length;i++)if(input[i]===raceText[i])correct++;
- let prefix=0;while(prefix<input.length&&prefix<raceText.length&&input[prefix]===raceText[prefix])prefix++;
- return {correct,accuracy:input.length?correct/input.length:1,index:prefix};
-}
-function renderText(input){
- let out="";
- for(let i=0;i<raceText.length;i++){
-  const c=esc(raceText[i]);
-  if(i<input.length)out+=input[i]===raceText[i]?`<span class="correct">${c}</span>`:`<span class="wrong">${c}</span>`;
-  else if(i===input.length)out+=`<span class="current">${c}</span>`;else out+=c;
- }
- return out;
-}
-function best(wpm){
- const old=Number(localStorage.getItem("typerush-best")||0);
- if(wpm>old)localStorage.setItem("typerush-best",wpm);
- $("#bestWpm").textContent=Math.max(old,wpm)||"—";
-}
+socket.on('connect',()=>socket.emit('identify'));
+socket.on('identified',u=>{me=u;renderAccount()});
+socket.on('roomCreated',d=>{show('rooms');toast(d.private?'Private room created · Code '+d.code:'Public room '+d.code+' created');socket.emit('roomList')});
+socket.on('roomList',renderRooms);
+socket.on('roomState',d=>toast(`Room ${d.code} · ${d.players}/2 players`));
+window.joinRoom=code=>{socket.emit('joinRoom',{code});toast('Joining room '+code+'…')};
+socket.on('errorMsg',m=>{toast(m);if($('queue')&&!$('queue').classList.contains('hidden'))show(mode||'mode')});
+socket.on('matchFound',beginBattle);
+socket.on('battleStart',d=>{startedAt=d.startAt;const wait=Math.max(0,d.startAt-Date.now());setTimeout(()=>{$('typing').disabled=false;$('typing').focus();battleStarted=true;toast('GO — type!')},wait)});
 
-if(name)$("#nameModal").style.display="none";
-$("#saveName").onclick=()=>{const n=$("#nameInput").value.trim();if(!n)return;name=n;localStorage.setItem("typerush-name",name);socket.emit("setName",name);$("#nameModal").style.display="none"};
-$("#nameInput").onkeydown=e=>{if(e.key==="Enter")$("#saveName").click()};
-socket.on("online",n=>$("#onlineCount").textContent=n);
-
-$("#quickMatchBtn").onclick=()=>{socket.emit("quickMatch",settings);show("lobbyView");$("#lobbyTitle").textContent="Finding an opponent…";$("#roomCode").textContent="MATCH";$("#players").innerHTML=`<div class="player-card"><div class="avatar">${avatar(name)}</div><b>${esc(name)}</b></div><div class="vs">VS</div><div class="player-card"><div class="avatar alt">?</div><b>Searching…</b></div>`};
-$("#createRoomBtn").onclick=()=>{show("setupView");$("#setupTitle").textContent="Create a room";$("#launchRoomBtn").textContent="Create room"};
-$("#launchRoomBtn").onclick=()=>{const vis=document.querySelector("[data-visibility].active").dataset.visibility;socket.emit("createRoom",{settings,visibility:vis,name});show("lobbyView")};
-$$("[data-mode]").forEach(b=>b.onclick=()=>{$$("[data-mode]").forEach(x=>x.classList.remove("active"));b.classList.add("active");settings.mode=b.dataset.mode;updateSetup()});
-$$("[data-visibility]").forEach(b=>b.onclick=()=>{$$("[data-visibility]").forEach(x=>x.classList.remove("active"));b.classList.add("active")});
-$("#wordsRange").oninput=e=>{settings.words=+e.target.value;updateSetup()};
-$("#timeRange").oninput=e=>{settings.time=+e.target.value;updateSetup()};
-["punctuation","capitalization","numbers"].forEach(k=>$("#"+k).onchange=e=>{settings[k]=e.target.checked;updateSetup()});
-$$("[data-back]").forEach(x=>x.onclick=()=>show("homeView"));
-$("#leaveLobby").onclick=()=>location.href=location.pathname;
-$("#copyInvite").onclick=async()=>{if(currentRoom){await navigator.clipboard.writeText(location.origin+"/?room="+currentRoom.code);toast("Invite link copied")}};
-$("#startBattleBtn").onclick=()=>socket.emit("startRoom");
-$("#homeBtn").onclick=()=>{history.replaceState({},'',location.pathname);show("homeView")};
-$("#rematchBtn").onclick=()=>{if(currentRoom){socket.emit("joinRoom",currentRoom.code);show("lobbyView")}};
-
-socket.on("rooms:update",rooms=>{
- $("#roomList").innerHTML=rooms.length?rooms.map(r=>`<div class="room"><div><div class="room-name">${esc(r.name)}</div><div class="room-meta">${r.settings.mode==="words"?r.settings.words+" words":r.settings.time+" sec"} · ${r.settings.punctuation?"punctuation":"no punctuation"} · ${r.settings.numbers?"numbers":"no numbers"}</div></div><span class="mini-label">${r.players}/2</span><button class="btn secondary small" onclick="joinRoom('${r.code}')">Join</button></div>`).join(""):`<div class="empty">No public rooms yet. Create one and be the first.</div>`;
+$('typing').addEventListener('input',()=>{
+  if(!battleStarted||inputLocked)return;
+  const v=$('typing').value;
+  let valid=true;for(let i=0;i<v.length;i++)if(v[i]!==text[i]){valid=false;break}
+  if(!valid){inputLocked=true;$('typing').value=v.slice(0,-1);localMistakes++;updateStats($('typing').value);setTimeout(()=>inputLocked=false,25);return}
+  updateStats(v);socket.emit('progress',{matchId,index:v.length,mistakes:localMistakes});
 });
-window.joinRoom=c=>{socket.emit("joinRoom",c);show("lobbyView")};
-socket.on("queue:waiting",()=>$("#lobbyStatus").textContent="Searching for an opponent with matching settings…");
-socket.on("room:created",r=>{currentRoom=r;renderLobby(r);history.replaceState({},'',`/?room=${r.code}`)});
-socket.on("room:update",r=>{currentRoom=r;renderLobby(r)});
-function renderLobby(r){
- $("#roomCode").textContent=r.code;$("#lobbyTitle").textContent=r.players.length===2?"Opponent found!":"Waiting for opponent";
- let cards=r.players.map(p=>`<div class="player-card"><div class="avatar ${p.id===socket.id?"":"alt"}">${avatar(p.name)}</div><b>${esc(p.name)}${p.id===socket.id?" (you)":""}</b></div>`);
- if(r.players.length===1)cards.push(`<div class="vs">VS</div><div class="player-card"><div class="avatar alt">?</div><b>Waiting…</b></div>`);
- $("#players").innerHTML=cards.join(r.players.length===2?'<div class="vs">VS</div>':"");
- $("#lobbySettings").textContent=`${r.settings.mode==="words"?r.settings.words+" words":r.settings.time+" seconds"} · ${r.settings.punctuation?"punctuation":"no punctuation"} · ${r.settings.capitalization?"capitalization":"lowercase"} · ${r.settings.numbers?"numbers":"no numbers"}`;
- $("#startBattleBtn").classList.toggle("hidden",!(r.players.length===2&&r.host===socket.id));
-}
-socket.on("battle:prepare",d=>{raceText=d.text;settings=d.settings;$("#raceText").innerHTML=renderText("");$("#typingInput").value="";$("#typingInput").disabled=true;show("battleView")});
-socket.on("battle:countdown",n=>$("#battleClock").textContent=n>0?n:"GO!");
-socket.on("battle:start",d=>{startedAt=d.started;finished=false;$("#typingInput").disabled=false;$("#typingInput").focus();requestAnimationFrame(clock)});
-socket.on("race:correction",d=>{
-  // Keep the player's actual input visible. A typo is normal gameplay, not a ban-worthy event.
-  // The server only corrects its authoritative progress.
-  if(d.reason==="impossible-speed"||d.reason==="backward") toast("That progress update was rejected by the server.");
+socket.on('opponentProgress',d=>{
+  if(d.socketId!==socket.id){$('oppMeta').textContent=`${Math.round(d.index/text.length*100)}% · ${d.mistakes} mistakes`}
 });
-socket.on("race:opponent",d=>{$("#opFill").style.width=Math.min(100,(d.index||0)/raceText.length*100)+"%";$("#opProgress").textContent=Math.min(100,Math.round((d.index||0)/raceText.length*100))+"%"});
-socket.on("battle:finish",data=>{
- finished=true;$("#typingInput").disabled=true;
- const me=data.results.find(x=>x.id===socket.id)||{index:0,elapsed:(Date.now()-startedAt)/1000};
- const op=data.results.find(x=>x.id!==socket.id)||{index:0,elapsed:me.elapsed};
- const s=score($("#typingInput").value),elapsed=Math.max(.1,me.elapsed||1),wpm=Math.round((s.correct/5)/(elapsed/60));
- best(wpm);
- $("#resultTitle").textContent=data.winnerId===socket.id?"You won!":data.winnerId===null?"It's a tie!":"Race finished";
- $("#resultSubtitle").textContent=data.reason==="disconnect"?"Your opponent disconnected.":data.reason==="time"?"Time's up.":"Race complete.";
- $("#resultWpm").textContent=wpm||0;$("#resultAccuracy").textContent=Math.round(s.accuracy*100)+"%";$("#resultTime").textContent=Math.round(elapsed)+"s";$("#resultChars").textContent=s.correct;
- const opw=Math.round(((op.index||0)/5)/(Math.max(.1,op.elapsed||elapsed)/60));
- $("#resultOpName").textContent=op.name||"Opponent";$("#resultOpWpm").textContent=(opw||0)+" WPM";$("#resultOpBar").style.width=Math.min(100,(op.index||0)/raceText.length*100)+"%";
- show("resultsView");
+socket.on('battleEnd',d=>{
+  battleStarted=false;$('typing').disabled=true;show('result');
+  const win=d.winner===socket.id;
+  $('resultIcon').textContent=win?'✦':'×';$('resultTitle').textContent=win?'Victory!':'Defeat';
+  $('resultText').textContent=d.reason==='mistakes'?'The mistake limit was exceeded.':win?'You finished first.':'Your opponent finished first.';
+  $('resultMeta').innerHTML=mode==='ranked'&&me?`<strong>${me.username}</strong> · current rating ${me.elo} ELO`:'Casual battle complete';
 });
-$("#typingInput").addEventListener("input",()=>{
- if(finished)return;
- const input=$("#typingInput").value,s=score(input);
- $("#raceText").innerHTML=renderText(input);$("#meFill").style.width=Math.min(100,s.index/raceText.length*100)+"%";$("#meProgress").textContent=Math.min(100,Math.round(s.index/raceText.length*100))+"%";
- const elapsed=Math.max(.001,(Date.now()-startedAt)/1000),wpm=Math.round((s.correct/5)/(elapsed/60));$("#liveWpm").textContent=(wpm||0)+" WPM";
- socket.emit("race:progress",{typed:input});
-});
-function clock(){
- if(finished)return;
- const e=(Date.now()-startedAt)/1000;
- $("#battleClock").textContent=settings.mode==="time"?Math.max(0,Math.ceil(settings.time-e))+"s":Math.floor(e)+"s";
- requestAnimationFrame(clock);
-}
-socket.on("error:msg",m=>{toast(m);setTimeout(()=>show("homeView"),700)});
-$("#bestWpm").textContent=localStorage.getItem("typerush-best")||"—";
-updateSetup();
-const room=new URLSearchParams(location.search).get("room");if(room)setTimeout(()=>{socket.emit("joinRoom",room);show("lobbyView")},300);
+setTimeout(()=>{$('main').classList.remove('hidden')},1950);
