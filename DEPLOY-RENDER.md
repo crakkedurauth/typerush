@@ -40,3 +40,7 @@ Open:
 It should return JSON containing `ok: true`.
 
 Then open the normal service URL and test signup/login, Casual Quick Match, and Ranked Quick Match with two browser sessions.
+
+
+## Render authentication
+Set `SESSION_SECRET` in the Render Environment Variables. Do not commit it to GitHub. The frontend authentication requests use same-origin credentials and display API errors directly in the UI.

@@ -16,3 +16,7 @@ Open `http://localhost:3000`.
 This repository is configured for Render Node 20 and does not include `node_modules` or local SQLite database files.
 
 See `DEPLOY-RENDER.md` for the exact Render configuration.
+
+
+## Render authentication
+Set `SESSION_SECRET` in the Render Environment Variables. Do not commit it to GitHub. The frontend authentication requests use same-origin credentials and display API errors directly in the UI.

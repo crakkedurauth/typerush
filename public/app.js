@@ -50,3 +50,78 @@ socket.on('roomOpponentProgress',d=>{if(d.socketId!==socket.id)$('oppMeta').text
 socket.on('battleEnd',finishUI);
 loadMe(); updateRaceType(); renderAccount();
 setTimeout(()=>{$('main').classList.remove('hidden');},1950);
+
+
+/* TypeRush auth reliability patch */
+(() => {
+  const apiJSON = async (url, options = {}) => {
+    const res = await fetch(url, {
+      credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json', ...(options.headers || {})},
+      ...options
+    });
+    let data = {};
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  };
+
+  function showAuthMessage(message, ok=false) {
+    let el = document.querySelector('#authMessage');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'authMessage';
+      el.style.cssText = 'margin-top:12px;padding:10px 12px;border-radius:10px;font-size:13px;';
+      const target = document.querySelector('#authPanel') || document.querySelector('#rankedPanel') || document.body;
+      target.appendChild(el);
+    }
+    el.textContent = message;
+    el.style.background = ok ? 'rgba(80,220,150,.12)' : 'rgba(255,90,110,.12)';
+    el.style.border = ok ? '1px solid rgba(80,220,150,.28)' : '1px solid rgba(255,90,110,.28)';
+  }
+
+  document.addEventListener('click', async (event) => {
+    const loginBtn = event.target.closest('[data-auth-action="login"], #loginBtn, #loginButton');
+    const signupBtn = event.target.closest('[data-auth-action="signup"], #signupBtn, #signupButton');
+    if (!loginBtn && !signupBtn) return;
+
+    event.preventDefault();
+    const mode = signupBtn ? 'signup' : 'login';
+    const username = (document.querySelector('#authUsername, #username, input[name="username"]')?.value || '').trim();
+    const password = document.querySelector('#authPassword, #password, input[name="password"]')?.value || '';
+
+    if (!username || !password) {
+      showAuthMessage('Enter a username and password.');
+      return;
+    }
+
+    const btn = signupBtn || loginBtn;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = mode === 'signup' ? 'Creating…' : 'Signing in…';
+
+    try {
+      const data = await apiJSON(`/api/${mode}`, {
+        method:'POST',
+        body: JSON.stringify({username, password})
+      });
+      showAuthMessage(mode === 'signup' ? 'Account created — you are signed in.' : 'Signed in successfully.', true);
+      window.dispatchEvent(new CustomEvent('typerush-auth-success', {detail:data.user}));
+      if (typeof window.loadRanked === 'function') await window.loadRanked();
+    } catch (err) {
+      showAuthMessage(err.message || 'Unable to complete authentication.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    const input = event.target.closest('#authUsername, #authPassword, #username, #password, input[name="username"], input[name="password"]');
+    if (!input) return;
+    const panel = input.closest('form, #authPanel, #rankedPanel') || document;
+    const btn = panel.querySelector('[data-auth-action="login"], [data-auth-action="signup"], #loginBtn, #loginButton, #signupBtn, #signupButton');
+    if (btn && !btn.disabled) btn.click();
+  });
+})();
