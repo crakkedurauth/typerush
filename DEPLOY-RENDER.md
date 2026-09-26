@@ -1,27 +1,42 @@
-# Deploy TypeRush on Render
+# TypeRush — Render deployment
 
-## Recommended
-Use a Render Web Service with a persistent disk because the app stores accounts and ELO in SQLite.
+## Why the previous deploy failed
 
-### Manual settings
+The previous repository allowed Render to select Node 26. `better-sqlite3@11.8.1` then attempted a native build against Node 26 and failed. This repository pins Node to 20.x so Render uses the compatible Node LTS line.
+
+## Render Web Service
+
+Use a **Web Service**, not a Static Site.
+
+- Build Command: `npm ci --omit=dev`
+- Start Command: `npm start`
+- Health Check Path: `/health`
 - Runtime: Node
-- Build command: `npm install --omit=dev`
-- Start command: `npm start`
-- Health check: `/health`
 
-### Environment variables
+The repository includes `.nvmrc`, `.node-version`, `package.json` engines, and `render.yaml` all targeting Node 20.
+
+## Environment variables
+
+Render should have:
+
 - `NODE_ENV=production`
-- `SESSION_SECRET` = a long random secret
+- `SESSION_SECRET` — generate a long random secret in Render
 - `DB_PATH=/var/data/typing-battles.db`
 
-### Persistent disk
-Mount a Render persistent disk at `/var/data`. Without it, SQLite account/ELO data can be lost when the service is replaced/redeployed.
+The included `render.yaml` attaches a 1 GB persistent disk at `/var/data` on the Starter plan. This is required if SQLite data (accounts/ELO) must survive restarts and deploys.
 
-### WebSockets
-Socket.IO runs through the same Render Web Service; do not deploy this as a static site.
+## Important
 
-## GitHub
-Do NOT commit `node_modules` or `typing-battles.db`. Render will install dependencies itself.
+Do not commit `node_modules/` or `typing-battles.db*`. Render installs Linux-compatible dependencies during `npm ci` and creates the database on the persistent disk.
 
-## Free-tier note
-A persistent disk is not available on every Render plan. If your plan does not allow a persistent disk, do not use this SQLite build for persistent ranked accounts; move the database to PostgreSQL instead.
+If you want to run on a plan without persistent disks, use PostgreSQL for production account/ELO persistence instead of SQLite.
+
+## After deployment
+
+Open:
+
+`https://YOUR-RENDER-SERVICE.onrender.com/health`
+
+It should return JSON containing `ok: true`.
+
+Then open the normal service URL and test signup/login, Casual Quick Match, and Ranked Quick Match with two browser sessions.

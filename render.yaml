@@ -3,7 +3,7 @@ services:
     name: typerush
     runtime: node
     plan: starter
-    buildCommand: npm install --omit=dev
+    buildCommand: npm ci --omit=dev
     startCommand: npm start
     healthCheckPath: /health
     envVars:
