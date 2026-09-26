@@ -116,18 +116,34 @@ function start(r){
 }
 
 function validate(r,p,typed){
-  if(typeof typed!=="string"||typed.length>r.text.length)return "invalid-input";
-  if(typed!==r.text.slice(0,typed.length))return "text-mismatch";
+  if(typeof typed!=="string")return {error:"invalid-input",index:p.index||0};
   const now=Date.now();
-  if(now<r.startedAt-1500)return "early";
-  if(r.settings.mode==="time"&&now>r.endsAt+1000)return "late";
-  if(typed.length<(p.lastLen||0))return "backward";
-  const delta=typed.length-(p.lastLen||0);
+  if(now<r.startedAt-1500)return {error:"early",index:p.index||0};
+  if(r.settings.mode==="time"&&now>r.endsAt+1000)return {error:"late",index:p.index||0};
+
+  // A normal typo is NOT a cheating violation and must never end the race.
+  // The authoritative score is the longest correct prefix of the submitted text.
+  let correctPrefix=0;
+  const max=Math.min(typed.length,r.text.length);
+  while(correctPrefix<max && typed[correctPrefix]===r.text[correctPrefix])correctPrefix++;
+
+  // Never allow a client to reduce its server-known progress.
+  if(correctPrefix<(p.index||0)){
+    return {error:"backward",index:p.index||0};
+  }
+
+  const delta=correctPrefix-(p.index||0);
   const elapsed=Math.max(1,now-(p.lastAt||r.startedAt));
   const cps=delta/(elapsed/1000);
-  if(delta>80&&cps>45)return "impossible-speed";
-  p.lastLen=typed.length;p.lastAt=now;p.typed=typed;p.index=typed.length;
-  return null;
+
+  // Only an implausible *correct-prefix* jump is suspicious.
+  if(delta>80&&cps>45)return {error:"impossible-speed",index:p.index||0};
+
+  p.index=correctPrefix;
+  p.typed=typed.slice(0,correctPrefix);
+  p.lastLen=typed.length;
+  p.lastAt=now;
+  return {error:null,index:correctPrefix};
 }
 
 io.on("connection",socket=>{
@@ -175,15 +191,29 @@ io.on("connection",socket=>{
   socket.on("race:progress",({typed=""}={})=>{
     const r=roomFor(socket.id);if(!r||r.state!=="racing")return;
     const p=r.players.find(x=>x.id===socket.id);
-    const err=validate(r,p,typed);
-    if(err){
-      p.strikes=(p.strikes||0)+1;
-      socket.emit("race:correction",{typed:p.typed||"",reason:err});
-      if(p.strikes>=3){socket.emit("error:msg","Invalid typing data was detected. The race has been stopped.");finish(r,"invalid-input")}
+    const result=validate(r,p,typed);
+
+    // Ordinary typing mistakes are harmless. They do not count as anti-cheat strikes.
+    // The player simply keeps typing; their authoritative progress is the correct prefix.
+    if(result.error){
+      if(result.error==="backward" || result.error==="impossible-speed"){
+        p.strikes=(p.strikes||0)+1;
+        if(p.strikes>=5){
+          socket.emit("error:msg","Suspicious race data was detected. The race has been stopped.");
+          finish(r,"invalid-input");
+          return;
+        }
+      }
+      socket.emit("race:correction",{typed:p.typed||"",reason:result.error,index:p.index||0});
       return;
     }
+
     socket.to(r.code).emit("race:opponent",{index:p.index});
-    if(p.index>=r.text.length){p.finished=true;p.finishAt=Date.now();if(r.settings.mode==="words")finish(r,"complete")}
+    if(p.index>=r.text.length){
+      p.finished=true;
+      p.finishAt=Date.now();
+      if(r.settings.mode==="words")finish(r,"complete");
+    }
   });
 
   socket.on("disconnect",()=>{

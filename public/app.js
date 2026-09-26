@@ -71,7 +71,11 @@ function renderLobby(r){
 socket.on("battle:prepare",d=>{raceText=d.text;settings=d.settings;$("#raceText").innerHTML=renderText("");$("#typingInput").value="";$("#typingInput").disabled=true;show("battleView")});
 socket.on("battle:countdown",n=>$("#battleClock").textContent=n>0?n:"GO!");
 socket.on("battle:start",d=>{startedAt=d.started;finished=false;$("#typingInput").disabled=false;$("#typingInput").focus();requestAnimationFrame(clock)});
-socket.on("race:correction",d=>{$("#typingInput").value=d.typed||"";$("#raceText").innerHTML=renderText($("#typingInput").value);toast("Invalid typing input was corrected.")});
+socket.on("race:correction",d=>{
+  // Keep the player's actual input visible. A typo is normal gameplay, not a ban-worthy event.
+  // The server only corrects its authoritative progress.
+  if(d.reason==="impossible-speed"||d.reason==="backward") toast("That progress update was rejected by the server.");
+});
 socket.on("race:opponent",d=>{$("#opFill").style.width=Math.min(100,(d.index||0)/raceText.length*100)+"%";$("#opProgress").textContent=Math.min(100,Math.round((d.index||0)/raceText.length*100))+"%"});
 socket.on("battle:finish",data=>{
  finished=true;$("#typingInput").disabled=true;
